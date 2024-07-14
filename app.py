@@ -1,25 +1,28 @@
+# app.py
 from flask import Flask
 from flask_migrate import Migrate
+from flask_cors import CORS
+from flask_restful import Api
+from extensions import db, bcrypt, jwt
+from resources import initialize_routes
 
+app = Flask(__name__)
 
+# Configuration (replace with your actual config)
+app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///yourdatabase.db'
+app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
+app.config['SECRET_KEY'] = 'yoursecretkey'
 
-from cakes import cake_bp
-from drinks import drink_bp
-from ice_cream import ice_cream_bp
+# Initialize extensions
+db.init_app(app)
+bcrypt.init_app(app)
+jwt.init_app(app)
+CORS(app)
 
-app=Flask(__name__)
+migrate = Migrate(app, db)
+api = Api(app)
 
+initialize_routes(api)
 
-
-
-
-app.register_blueprint(drink_bp)
-app.register_blueprint(cake_bp)
-app.register_blueprint(ice_cream_bp)
-
-
-
-if __name__=="__main__":
-    app.run(port=8080,debug=True)
-
-
+if __name__ == "__main__":
+    app.run(debug=True)
