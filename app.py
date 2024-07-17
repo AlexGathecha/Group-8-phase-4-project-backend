@@ -5,7 +5,7 @@ from flask_migrate import Migrate
 from flask_jwt_extended import JWTManager, create_access_token
 from flask_bcrypt import Bcrypt
 from flask_cors import CORS
-from flask_restful import Api, Resource, reqparse
+from flask_restful import Api, Resource, reqparse, fields, marshal_with
 
 # Initialize Flask app
 app = Flask(__name__)
@@ -64,6 +64,14 @@ class Product(db.Model):
     def __repr__(self):
         return f'<Product {self.name}>'
 
+# Define Review model
+class Review(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    name = db.Column(db.String(80), nullable=False)
+    review = db.Column(db.String(200), nullable=False)
+    rating = db.Column(db.Float, nullable=False)
+    created_at = db.Column(db.DateTime, default=db.func.current_timestamp())
+
 # Define parsers for registration and login
 register_parser = reqparse.RequestParser()
 register_parser.add_argument('username', type=str, required=True, help='Username is required')
@@ -86,6 +94,20 @@ product_parser.add_argument('name', type=str, required=True, help='Name of the p
 product_parser.add_argument('description', type=str, required=True, help='Description of the product is required')
 product_parser.add_argument('price', type=float, required=True, help='Price of the product is required')
 product_parser.add_argument('image', type=str, required=True, help='Image URL of the product is required')
+
+review_parser = reqparse.RequestParser()
+review_parser.add_argument('name', type=str, required=True, help='Name is required')
+review_parser.add_argument('review', type=str, required=True, help='Review is required')
+review_parser.add_argument('rating', type=float, required=True, help='Rating is required')
+
+# Define resource fields
+review_fields = {
+    'id': fields.Integer,
+    'name': fields.String,
+    'review': fields.String,
+    'rating': fields.Float,
+    'created_at': fields.DateTime
+}
 
 # User registration resource
 class RegisterResource(Resource):
@@ -203,6 +225,33 @@ class ProductResource(Resource):
         db.session.commit()
         return '', 204
 
+# Review resources
+class ReviewListResource(Resource):
+    @marshal_with(review_fields)
+    def get(self):
+        reviews = Review.query.all()
+        return reviews
+
+    @marshal_with(review_fields)
+    def post(self):
+        args = review_parser.parse_args()
+        review = Review(name=args['name'], review=args['review'], rating=args['rating'])
+        db.session.add(review)
+        db.session.commit()
+        return review, 201
+
+class ReviewResource(Resource):
+    @marshal_with(review_fields)
+    def get(self, review_id):
+        review = Review.query.get_or_404(review_id)
+        return review
+
+    def delete(self, review_id):
+        review = Review.query.get_or_404(review_id)
+        db.session.delete(review)
+        db.session.commit()
+        return '', 204
+
 # Add resources to API
 api.add_resource(RegisterResource, '/register')
 api.add_resource(LoginResource, '/login')
@@ -211,6 +260,8 @@ api.add_resource(FoodListResource, '/api/foods')
 api.add_resource(FoodResource, '/api/foods/<int:food_id>')
 api.add_resource(ProductListResource, '/api/products')
 api.add_resource(ProductResource, '/api/products/<int:product_id>')
+api.add_resource(ReviewListResource, '/api/reviews')
+api.add_resource(ReviewResource, '/api/reviews/<int:review_id>')
 
 if __name__ == '__main__':
     app.run(debug=True)
